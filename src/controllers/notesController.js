@@ -4,53 +4,36 @@ import createHttpError from 'http-errors';
 export const getAllNotes = async (req, res) => {
   const { page = 1, perPage = 5, tag, search } = req.query;
 
-  const pageNumber = Number(page);
-  const perPageNumber = Number(perPage);
-  const skip = (pageNumber - 1) * perPageNumber;
+  const skip = (page - 1) * perPage;
 
-  const filter = {
-    userId: req.user._id,
-  };
+  const notesQuery = Note.find({ userId: req.user._id });
 
   if (tag) {
-    filter.tag = tag;
+    notesQuery.where('tag').equals(tag);
   }
 
   if (search) {
-    filter.$or = [
-      {
-        title: {
-          $regex: search,
-          $options: 'i',
-        },
-      },
-      {
-        content: {
-          $regex: search,
-          $options: 'i',
-        },
-      },
-    ];
+    notesQuery.where({
+      $text: { $search: search },
+    });
   }
 
   const [totalNotes, notes] = await Promise.all([
-    Note.countDocuments(filter),
-    Note.find(filter)
-      .skip(skip)
-      .limit(perPageNumber)
-      .lean(),
+    notesQuery.clone().countDocuments(),
+    notesQuery.skip(skip).limit(perPage),
   ]);
 
-  const totalPages = Math.ceil(totalNotes / perPageNumber);
+  const totalPages = Math.ceil(totalNotes / perPage);
 
   res.status(200).json({
-    page: pageNumber,
-    perPage: perPageNumber,
+    page,
+    perPage,
     totalNotes,
     totalPages,
     notes,
   });
 };
+
 export const getNoteById = async (req, res) => {
   const { noteId } = req.params;
   const note = await Note.findOne({
