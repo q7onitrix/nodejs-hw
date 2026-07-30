@@ -8,17 +8,25 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export async function saveFileToCloudinary(buffer) {
+export const saveFileToCloudinary = async (buffer, userId) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: 'notehub-app/avatars',
         resource_type: 'image',
+        public_id: userId.toString(),
         overwrite: true,
-        unique_filename: false,
       },
-      (err, result) => (err ? reject(err) : resolve(result)),
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve(result);
+      },
     );
+
     Readable.from(buffer).pipe(uploadStream);
   });
-}
+};
